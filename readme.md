@@ -1,2 +1,2 @@
 ##Compile
-sudo c++ -std=c++0x test.cpp -o test -lwiringPi
+sudo c++ -std=c++0x capture.cpp -o capture -lwiringPi

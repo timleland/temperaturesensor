@@ -11,6 +11,8 @@
 #include <wiringPi.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sqlite3.h>
+
 
 #define RING_BUFFER_SIZE 256
 #define SYNC_LENGTH 9000
@@ -36,11 +38,79 @@ bool isSync(unsigned int idx){
 	return false;
 }
 
-int printTime ()
+void printTime ()
 {
     time_t ltime; /* calendar time */
     ltime=time(NULL); /* get current cal time */
     printf("%s",asctime( localtime(&ltime) ) );
+}
+
+void createDatabase() {
+   sqlite3 *db;
+   char *zErrMsg = 0;
+   int rc;
+   char *sql;
+
+   /* Open database */
+   rc = sqlite3_open("tempsensor.db", &db);
+
+   if( rc ) {
+      fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
+      return(0);
+   } else {
+      fprintf(stdout, "Opened database successfully\n");
+   }
+
+   /* Create SQL statement */
+   sql = "CREATE TABLE temperature("  \
+         "ID INT PRIMARY KEY     NOT NULL," \
+         "TEMPERATURE           INT    NOT NULL);";
+
+   /* Execute SQL statement */
+   rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
+
+   if( rc != SQLITE_OK ){
+   fprintf(stderr, "SQL error: %s\n", zErrMsg);
+      sqlite3_free(zErrMsg);
+   } else {
+      fprintf(stdout, "Table created successfully\n");
+   }
+   sqlite3_close(db);
+   return 0;
+}
+
+void insertTemp (int temperatureReading)
+{
+    sqlite3 *db;
+    char *zErrMsg = 0;
+   int rc;
+   char *sql;
+
+   /* Open database */
+   rc = sqlite3_open("tempsensor.db", &db);
+
+   if( rc ) {
+      fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
+      createDatabase();
+      rc = sqlite3_open("tempsensor.db", &db);
+   } else {
+      fprintf(stderr, "Opened database successfully\n");
+   }
+
+   /* Create SQL statement */
+   sql = "INSERT INTO temperature (temperature) VALUES (" + temperatureReading + ");";
+
+   /* Execute SQL statement */
+   rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
+
+   if( rc != SQLITE_OK ){
+      fprintf(stderr, "SQL error: %s\n", zErrMsg);
+      sqlite3_free(zErrMsg);
+   } else {
+      fprintf(stdout, "Records created successfully\n");
+   }
+   sqlite3_close(db);
+   return 0;
 }
 
 void handler(){
