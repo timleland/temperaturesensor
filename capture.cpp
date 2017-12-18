@@ -7,6 +7,7 @@
 // ring buffer size has to be large enough to fit
 // data between two successive sync signals
 
+#include <string>
 #include <time.h>
 #include <wiringPi.h>
 #include <stdlib.h>
@@ -110,7 +111,7 @@ void insertTemp (int temperatureReading)
    /* Create SQL statement */
    /* Create SQL statement */
    sql = "INSERT INTO temperature (TEMPERATURE) "  \
-         "VALUES ("+temperatureReading+");";
+         "VALUES ("+std::to_string(temperatureReading)+");";
 
    /* Execute SQL statement */
    rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
