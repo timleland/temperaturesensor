@@ -57,7 +57,7 @@ void createDatabase() {
 
    if( rc ) {
       fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-      return(0);
+      return;
    } else {
       fprintf(stdout, "Opened database successfully\n");
    }
@@ -77,7 +77,7 @@ void createDatabase() {
       fprintf(stdout, "Table created successfully\n");
    }
    sqlite3_close(db);
-   return 0;
+   return;
 }
 
 void insertTemp (int temperatureReading)
@@ -111,7 +111,7 @@ void insertTemp (int temperatureReading)
       fprintf(stdout, "Records created successfully\n");
    }
    sqlite3_close(db);
-   return 0;
+   return;
 }
 
 void handler(){
@@ -212,7 +212,7 @@ int main(int argc, char *argv[]){
                 int cel = (temp+5)/10;
 
 				printf("%d C  %d F\n",cel,(temp*9/5+325)/10);
-                insertTemp()
+                insertTemp(cel);
 			} else {
 				printf("Decoding Error.\n");
 			}
