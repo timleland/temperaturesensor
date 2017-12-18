@@ -25,37 +25,30 @@
 #define DATA_PIN 2 // wiringPi GPIO 2 (P1.13)
 
 unsigned long timings[RING_BUFFER_SIZE];
-unsigned int  syncIndex1 = 0;
-unsigned int  syncIndex2 = 0;
-bool received            = false;
+unsigned int  syncIndex1        = 0;
+unsigned int  syncIndex2        = 0;
+bool received                   = false;
+const char *temperatureDatabase = "TemperatureReadings.db";
 
 bool isSync(unsigned int idx) {
   unsigned long t0 = timings[(idx + RING_BUFFER_SIZE - 1) % RING_BUFFER_SIZE];
   unsigned long t1 = timings[idx];
 
-  if ((t0 > (SEP_LENGTH - 100)) && (t0 < (SEP_LENGTH + 100))
-      && (t1 > (SYNC_LENGTH - 1000)) && (t1 < (SYNC_LENGTH + 1000))
-      && (digitalRead(DATA_PIN) == HIGH)) {
+  if ((t0 > (SEP_LENGTH - 100)) && (t0 < (SEP_LENGTH + 100)) && (t1 > (SYNC_LENGTH - 1000)) && (t1 < (SYNC_LENGTH + 1000)) && (digitalRead(DATA_PIN) == HIGH)) {
     return true;
   }
+
   return false;
 }
 
-int callback(void *NotUsed, int argc, char **argv, char **azColName) {
-  int i;
-
-  for (i = 0; i < argc; i++) {
-    printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-  }
-  printf("\n");
+int sqlCallback(void *NotUsed, int argc, char **argv, char **azColName) {
   return 0;
 }
 
 void printTime()
 {
-  time_t ltime;       /* calendar time */
+  time_t ltime = time(NULL); /* get current cal time */
 
-  ltime = time(NULL); /* get current cal time */
   printf("%s", asctime(localtime(&ltime)));
 }
 
@@ -63,7 +56,7 @@ void executesql(std::string sql) {
   sqlite3 *db;
   char    *zErrMsg = 0;
 
-  int rc = sqlite3_open("tempsensor.db", &db);
+  int rc = sqlite3_open(temperatureDatabase, &db);
 
   if (rc) {
     fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
@@ -73,7 +66,7 @@ void executesql(std::string sql) {
   }
 
   /* Execute SQL statement */
-  rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
+  rc = sqlite3_exec(db, sql.c_str(), sqlCallback, 0, &zErrMsg);
 
   if (rc != SQLITE_OK) {
     fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -86,7 +79,7 @@ void executesql(std::string sql) {
 }
 
 inline bool databaseExist() {
-  if (FILE *file = fopen("tempsensor.db", "r")) {
+  if (FILE *file = fopen(temperatureDatabase, "r")) {
     fclose(file);
     return true;
   } else {
@@ -96,13 +89,13 @@ inline bool databaseExist() {
 
 void createDatabase() {
   if (!databaseExist()) {
-    std::string sql = "CREATE TABLE temperature(ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, TEMPERATURE INT NOT NULL);";
+    std::string sql = "CREATE TABLE Temperature(ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, Sensor REAL NOT NULL, Celsius INT NOT NULL, CreatedOn datetime default current_timestamp);";
     executesql(sql);
   }
 }
 
-void insertTemp(int temperatureReading) {
-  std::string sql = "INSERT INTO temperature (TEMPERATURE) VALUES (" + std::to_string(temperatureReading) + ");";
+void insertTemp(std::string sensor, int celsiusReading) {
+  std::string sql = "INSERT INTO Temperature (Sensor, Celsius) VALUES (" + sensor + ", " + std::to_string(celsiusReading) + ");";
   executesql(sql);
 }
 
@@ -132,11 +125,7 @@ void handler() {
     else if (syncCount == 2) {
       syncCount  = 0;
       syncIndex2 = (ringIndex + 1) % RING_BUFFER_SIZE;
-      unsigned int changeCount =
-        (syncIndex2 <
-         syncIndex1) ? (syncIndex2 + RING_BUFFER_SIZE -
-                        syncIndex1) : (syncIndex2 -
-                                       syncIndex1);
+      unsigned int changeCount = (syncIndex2 < syncIndex1) ? (syncIndex2 + RING_BUFFER_SIZE - syncIndex1) : (syncIndex2 - syncIndex1);
 
       if (changeCount != 66) {
         received   = false;
@@ -154,24 +143,27 @@ int main(int argc, char *argv[]) {
   createDatabase();
 
   if (wiringPiSetup() == -1) {
-    printf("no wiring pi detected\n");
+    printf("No wiring pi detected\n");
     return 0;
   }
+
   wiringPiISR(DATA_PIN, INT_EDGE_BOTH, &handler);
 
   while (true) {
     if (received == true) {
+      std::string capturedBinary = "";
       system("/usr/local/bin/gpio edge 2 none");
 
       // wiringPiISR(-1,INT_EDGE_BOTH,&handler);
-      for (unsigned int i = syncIndex1; i != syncIndex2;
-           i = (i + 2) % RING_BUFFER_SIZE) {
+      for (unsigned int i = syncIndex1; i != syncIndex2; i = (i + 2) % RING_BUFFER_SIZE) {
         unsigned long t0 = timings[i], t1 = timings[(i + 1) % RING_BUFFER_SIZE];
 
         if ((t0 > (SEP_LENGTH - 200)) && (t0 < (SEP_LENGTH + 200))) {
           if ((t1 > (BIT1_LENGTH - 1000)) && (t1 < (BIT1_LENGTH + 1000))) {
+            capturedBinary += "1";
             printf("1");
           } else if ((t1 > (BIT0_LENGTH - 1000)) && (t1 < (BIT0_LENGTH + 1000))) {
+            capturedBinary += "0";
             printf("0");
           } else {
             printf("SYNC");
@@ -185,9 +177,7 @@ int main(int argc, char *argv[]) {
       bool negative      = false;
       bool fail          = false;
 
-      for (unsigned int i = (syncIndex1 + 24) % RING_BUFFER_SIZE;
-           i != (syncIndex1 + 48) % RING_BUFFER_SIZE;
-           i = (i + 2) % RING_BUFFER_SIZE) {
+      for (unsigned int i = (syncIndex1 + 24) % RING_BUFFER_SIZE; i != (syncIndex1 + 48) % RING_BUFFER_SIZE; i = (i + 2) % RING_BUFFER_SIZE) {
         unsigned long t0 = timings[i], t1 = timings[(i + 1) % RING_BUFFER_SIZE];
 
         if ((t0 > (SEP_LENGTH - 200)) && (t0 < (SEP_LENGTH + 200))) {
@@ -203,7 +193,7 @@ int main(int argc, char *argv[]) {
             fail = true;
           }
         } else {
-          printf("wrong seporation length: %d\n", t0);
+          printf("wrong separation length: %d\n", t0);
           fail = true;
         }
       }
@@ -214,11 +204,14 @@ int main(int argc, char *argv[]) {
           printf("-");
         }
 
+        printf("%d TEMP \n", temp);
         printTime();
-        int cel = (temp + 5) / 10;
+        int celsiusReading = (temp + 5) / 10;
 
-        printf("%d C  %d F\n", cel, (temp * 9 / 5 + 325) / 10);
-        insertTemp(cel);
+        // First bit in capturedBinary represents the sensor identifier
+        std::string sensor = capturedBinary.substr(0, 8);
+        printf("%d C  %d F\n", celsiusReading, (temp * 9 / 5 + 325) / 10);
+        insertTemp(sensor, celsiusReading);
       } else {
         printf("Decoding Error.\n");
       }
