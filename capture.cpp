@@ -109,8 +109,7 @@ void insertTemp (int temperatureReading)
 
    /* Create SQL statement */
    /* Create SQL statement */
-   string sql = "INSERT INTO temperature (TEMPERATURE) "  \
-         "VALUES ("+std::to_string(temperatureReading)+");";
+   string sql = "INSERT INTO temperature (TEMPERATURE) VALUES (" temperatureReading+");";
 
    /* Execute SQL statement */
    rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
