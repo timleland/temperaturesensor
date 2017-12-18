@@ -94,7 +94,7 @@ void insertTemp (int temperatureReading)
     sqlite3 *db;
     char *zErrMsg = 0;
     int rc;
-    char *sql;
+    std::string *sql;
 
    /* Open database */
    rc = sqlite3_open("tempsensor.db", &db);
