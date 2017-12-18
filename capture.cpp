@@ -207,7 +207,11 @@ int main(int argc, char *argv[]){
 					printf("-");
 				}
                 printTime();
-				printf("%d C  %d F\n",(temp+5)/10,(temp*9/5+325)/10);
+
+                int cel = (temp+5)/10;
+
+				printf("%d C  %d F\n",cel,(temp*9/5+325)/10);
+                insertTemp()
 			} else {
 				printf("Decoding Error.\n");
 			}
