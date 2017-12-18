@@ -39,6 +39,15 @@ bool isSync(unsigned int idx){
 	return false;
 }
 
+int callback(void *NotUsed, int argc, char **argv, char **azColName) {
+   int i;
+   for(i = 0; i<argc; i++) {
+      printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+   }
+   printf("\n");
+   return 0;
+}
+
 void printTime ()
 {
     time_t ltime; /* calendar time */
@@ -78,15 +87,6 @@ void createDatabase() {
    }
    sqlite3_close(db);
    return;
-}
-
-static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
-   int i;
-   for(i = 0; i<argc; i++) {
-      printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-   }
-   printf("\n");
-   return 0;
 }
 
 void insertTemp (int temperatureReading)
