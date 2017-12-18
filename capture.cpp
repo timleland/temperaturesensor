@@ -108,7 +108,15 @@ void insertTemp (int temperatureReading)
    }
 
    /* Create SQL statement */
-   sql = "INSERT INTO temperature (temperature) VALUES ( " + temperatureReading + " );";
+   /* Create SQL statement */
+   sql = "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY) "  \
+         "VALUES (1, 'Paul', 32, 'California', 20000.00 ); " \
+         "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY) "  \
+         "VALUES (2, 'Allen', 25, 'Texas', 15000.00 ); "     \
+         "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY)" \
+         "VALUES (3, 'Teddy', 23, 'Norway', 20000.00 );" \
+         "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY)" \
+         "VALUES (4, 'Mark', 25, 'Rich-Mond ', 65000.00 );";
 
    /* Execute SQL statement */
    rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
