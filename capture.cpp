@@ -7,6 +7,7 @@
 // ring buffer size has to be large enough to fit
 // data between two successive sync signals
 
+#include <string>
 #include <time.h>
 #include <wiringPi.h>
 #include <stdlib.h>
@@ -94,7 +95,7 @@ void insertTemp (int temperatureReading)
     sqlite3 *db;
     char *zErrMsg = 0;
     int rc;
-    std::string *sql;
+    string *sql;
 
    /* Open database */
    rc = sqlite3_open("tempsensor.db", &db);
