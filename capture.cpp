@@ -93,8 +93,8 @@ void insertTemp (int temperatureReading)
 {
     sqlite3 *db;
     char *zErrMsg = 0;
-   int rc;
-   char *sql;
+    int rc;
+    char *sql;
 
    /* Open database */
    rc = sqlite3_open("tempsensor.db", &db);
@@ -108,7 +108,7 @@ void insertTemp (int temperatureReading)
    }
 
    /* Create SQL statement */
-   sql = "INSERT INTO temperature (temperature) VALUES (" + temperatureReading + ");";
+   sql = "INSERT INTO temperature (temperature) VALUES (  70 );";
 
    /* Execute SQL statement */
    rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
@@ -119,6 +119,7 @@ void insertTemp (int temperatureReading)
    } else {
       fprintf(stdout, "Records created successfully\n");
    }
+
    sqlite3_close(db);
    return;
 }
