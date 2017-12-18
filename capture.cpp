@@ -109,8 +109,8 @@ void insertTemp (int temperatureReading)
 
    /* Create SQL statement */
    /* Create SQL statement */
-   sql = "INSERT INTO COMPANY (TEMPERATURE) "  \
-         "VALUES (4);";
+   sql = "INSERT INTO temperature (TEMPERATURE) "  \
+         "VALUES ("+temperatureReading+");";
 
    /* Execute SQL statement */
    rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
