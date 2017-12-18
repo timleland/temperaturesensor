@@ -11,6 +11,7 @@
 #include <wiringPi.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <iostream>
 #include <sqlite3.h>
 
 
