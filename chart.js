@@ -3,7 +3,7 @@ var chartLabels = [];
 
 _temperatureReadings.reverse();
 for (var i = 0, len = _temperatureReadings.length; i < len; i++) {
-    chartLabels.push(moment.utc(_temperatureReadings[i]['CreatedOn']).local().format("MM-DD-YYYY h:mm:ss a"));
+    chartLabels.push(moment.utc(_temperatureReadings[i]['CreatedOn']).local().format('MM-DD-YYYY h:mm:ss a'));
     chartData.push(Math.round(_temperatureReadings[i]['Celsius'] * 1.8 + 32));
 }
 
