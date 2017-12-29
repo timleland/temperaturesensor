@@ -15,7 +15,6 @@
 #include <iostream>
 #include <sqlite3.h>
 
-
 #define RING_BUFFER_SIZE 256
 #define SYNC_LENGTH 9000
 #define SEP_LENGTH 500
@@ -89,13 +88,16 @@ inline bool databaseExist() {
 
 void createDatabase() {
   if (!databaseExist()) {
-    std::string sql = "CREATE TABLE Temperature(Id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, Sensor REAL NOT NULL, Celsius INT NOT NULL, CreatedOn datetime default current_timestamp);";
+    std::string sql = "CREATE TABLE Temperatures(Id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, SensorId REAL NOT NULL, Celsius INT NOT NULL, CreatedOn datetime default current_timestamp);";
     executesql(sql);
+
+    std::string sql2 = "CREATE TABLE Sensors(Id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, SensorId REAL NOT NULL, SensorName TEXT NOT NULL, CreatedOn datetime default current_timestamp);";
+    executesql(sql2);
   }
 }
 
 void insertTemp(std::string sensor, int celsiusReading) {
-  std::string sql = "INSERT INTO Temperature (Sensor, Celsius) VALUES (" + sensor + ", " + std::to_string(celsiusReading) + ");";
+  std::string sql = "INSERT INTO Temperatures (SensorId, Celsius) VALUES (" + sensor + ", " + std::to_string(celsiusReading) + ");";
   executesql(sql);
 }
 
@@ -152,9 +154,9 @@ int main(int argc, char *argv[]) {
   while (true) {
     if (received == true) {
       std::string capturedBinary = "";
-      system("/usr/local/bin/gpio edge 2 none");
 
-      // wiringPiISR(-1,INT_EDGE_BOTH,&handler);
+      // system("/usr/local/bin/gpio edge 2 none");
+
       for (unsigned int i = syncIndex1; i != syncIndex2; i = (i + 2) % RING_BUFFER_SIZE) {
         unsigned long t0 = timings[i], t1 = timings[(i + 1) % RING_BUFFER_SIZE];
 
@@ -217,10 +219,12 @@ int main(int argc, char *argv[]) {
       }
 
       delay(1000);
-      wiringPiISR(DATA_PIN, INT_EDGE_BOTH, &handler);
       received   = false;
       syncIndex1 = 0;
       syncIndex2 = 0;
+
+      // wiringPiISR(DATA_PIN, INT_EDGE_BOTH, &handler);
+
       printf("============================= \n \n \n");
     }
   }

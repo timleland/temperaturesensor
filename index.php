@@ -1,229 +1,61 @@
-/* Convert RF signal into bits (temperature sensor version)
- * Written by : Ray Wang (Rayshobby LLC)
- * http://rayshobby.net/?p=8827
- * Update: adapted to RPi using WiringPi
- */
-
-// ring buffer size has to be large enough to fit
-// data between two successive sync signals
-
-#include <string>
-#include <time.h>
-#include <wiringPi.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <iostream>
-#include <sqlite3.h>
+<!DOCTYPE html>
 
 
-#define RING_BUFFER_SIZE 256
-#define SYNC_LENGTH 9000
-#define SEP_LENGTH 500
-#define BIT1_LENGTH 4000
-#define BIT0_LENGTH 2000
+<html>
 
-#define DATA_PIN 2 // wiringPi GPIO 2 (P1.13)
+<head>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css">
+</head>
 
-unsigned long timings[RING_BUFFER_SIZE];
-unsigned int  syncIndex1        = 0;
-unsigned int  syncIndex2        = 0;
-bool received                   = false;
-const char *temperatureDatabase = "TemperatureReadings.db";
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-sm-12">
+                <canvas id="tempChart"></canvas>
+            </div>
+        </div>
 
-bool isSync(unsigned int idx) {
-  unsigned long t0 = timings[(idx + RING_BUFFER_SIZE - 1) % RING_BUFFER_SIZE];
-  unsigned long t1 = timings[idx];
+        <div class="row">
+            <div class="col-sm-12">
+                <h2>Records</h2>
+                <table class="table table-striped table-bordered table-sm">
+                    <tr>
+                        <th>Id</th>
+                        <th>Sensor</th>
+                        <th>Fahrenheit</th>
+                        <th>Celsius</th>
+                        <th>Date</th>
+                    </tr>
+                    <?php
+                        error_reporting(E_ALL);
+                        ini_set('display_errors', 'on');
 
-  if ((t0 > (SEP_LENGTH - 100)) && (t0 < (SEP_LENGTH + 100)) && (t1 > (SYNC_LENGTH - 1000)) && (t1 < (SYNC_LENGTH + 1000)) && (digitalRead(DATA_PIN) == HIGH)) {
-    return true;
-  }
+                        $db = new SQLite3('TemperatureReadings.db');
 
-  return false;
-}
+                        $result = $db->query('SELECT * FROM Temperatures ORDER BY Id DESC');
+                        $temperatureReadings = array();
+                        while ($row = $result->fetchArray()) {
+                            array_push($temperatureReadings, $row);
+                            $datetime = new DateTime($row['CreatedOn'], new DateTimeZone('UTC'));
+                            $datetime->setTimezone(new DateTimeZone('America/New_York'));
+                            echo "<tr><td>".$row['Id']."</td><td>".$row['SensorId']."</td><td>". ($row['Celsius'] * 1.8 + 32) ."°F</td><td>".$row['Celsius'] . "°C</td><td>". $datetime->format('m/d/Y g:i:s A')."</td></tr>";
+                        }
 
-int sqlCallback(void *NotUsed, int argc, char **argv, char **azColName) {
-  return 0;
-}
+                        echo '<script type="text/javascript">var _temperatureReadings = ' . json_encode($temperatureReadings) . '</script>';
 
-void printTime()
-{
-  time_t ltime = time(NULL); /* get current cal time */
 
-  printf("%s", asctime(localtime(&ltime)));
-}
+                ?>
+                </table>
+            </div>
+        </div>
 
-void executesql(std::string sql) {
-  sqlite3 *db;
-  char    *zErrMsg = 0;
+    </div>
 
-  int rc = sqlite3_open(temperatureDatabase, &db);
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.20.1/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.1/Chart.bundle.min.js"></script>
+    <script src="chart.js"></script>
 
-  if (rc) {
-    fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-    return;
-  } else {
-    fprintf(stdout, "Opened database successfully\n");
-  }
 
-  /* Execute SQL statement */
-  rc = sqlite3_exec(db, sql.c_str(), sqlCallback, 0, &zErrMsg);
+</body>
 
-  if (rc != SQLITE_OK) {
-    fprintf(stderr, "SQL error: %s\n", zErrMsg);
-    sqlite3_free(zErrMsg);
-  } else {
-    fprintf(stdout, "Sql executed successfully\n");
-  }
-
-  sqlite3_close(db);
-}
-
-inline bool databaseExist() {
-  if (FILE *file = fopen(temperatureDatabase, "r")) {
-    fclose(file);
-    return true;
-  } else {
-    return false;
-  }
-}
-
-void createDatabase() {
-  if (!databaseExist()) {
-    std::string sql = "CREATE TABLE Temperature(Id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, Sensor REAL NOT NULL, Celsius INT NOT NULL, CreatedOn datetime default current_timestamp);";
-    executesql(sql);
-  }
-}
-
-void insertTemp(std::string sensor, int celsiusReading) {
-  std::string sql = "INSERT INTO Temperature (Sensor, Celsius) VALUES (" + sensor + ", " + std::to_string(celsiusReading) + ");";
-  executesql(sql);
-}
-
-void handler() {
-  static unsigned long duration  = 0;
-  static unsigned long lastTime  = 0;
-  static unsigned int  ringIndex = 0;
-  static unsigned int  syncCount = 0;
-
-  if (received == true) {
-    return;
-  }
-
-  long time = micros();
-  duration = time - lastTime;
-  lastTime = time;
-
-  ringIndex          = (ringIndex + 1) % RING_BUFFER_SIZE;
-  timings[ringIndex] = duration;
-
-  if (isSync(ringIndex)) {
-    syncCount++;
-
-    if (syncCount == 1) {
-      syncIndex1 = (ringIndex + 1) % RING_BUFFER_SIZE;
-    }
-    else if (syncCount == 2) {
-      syncCount  = 0;
-      syncIndex2 = (ringIndex + 1) % RING_BUFFER_SIZE;
-      unsigned int changeCount = (syncIndex2 < syncIndex1) ? (syncIndex2 + RING_BUFFER_SIZE - syncIndex1) : (syncIndex2 - syncIndex1);
-
-      if (changeCount != 66) {
-        received   = false;
-        syncIndex1 = 0;
-        syncIndex2 = 0;
-      }
-      else {
-        received = true;
-      }
-    }
-  }
-}
-
-int main(int argc, char *argv[]) {
-  createDatabase();
-
-  if (wiringPiSetup() == -1) {
-    printf("No wiring pi detected\n");
-    return 0;
-  }
-
-  wiringPiISR(DATA_PIN, INT_EDGE_BOTH, &handler);
-
-  while (true) {
-    if (received == true) {
-      std::string capturedBinary = "";
-      system("/usr/local/bin/gpio edge 2 none");
-
-      // wiringPiISR(-1,INT_EDGE_BOTH,&handler);
-      for (unsigned int i = syncIndex1; i != syncIndex2; i = (i + 2) % RING_BUFFER_SIZE) {
-        unsigned long t0 = timings[i], t1 = timings[(i + 1) % RING_BUFFER_SIZE];
-
-        if ((t0 > (SEP_LENGTH - 200)) && (t0 < (SEP_LENGTH + 200))) {
-          if ((t1 > (BIT1_LENGTH - 1000)) && (t1 < (BIT1_LENGTH + 1000))) {
-            capturedBinary += "1";
-            printf("1");
-          } else if ((t1 > (BIT0_LENGTH - 1000)) && (t1 < (BIT0_LENGTH + 1000))) {
-            capturedBinary += "0";
-            printf("0");
-          } else {
-            printf("SYNC");
-          }
-        } else {
-          printf("?%d?", t0);
-        }
-      }
-
-      printf("\n");
-      unsigned long temp = 0;
-      bool negative      = false;
-      bool fail          = false;
-
-      for (unsigned int i = (syncIndex1 + 24) % RING_BUFFER_SIZE; i != (syncIndex1 + 48) % RING_BUFFER_SIZE; i = (i + 2) % RING_BUFFER_SIZE) {
-        unsigned long t0 = timings[i], t1 = timings[(i + 1) % RING_BUFFER_SIZE];
-
-        if ((t0 > (SEP_LENGTH - 200)) && (t0 < (SEP_LENGTH + 200))) {
-          if ((t1 > (BIT1_LENGTH - 1000)) && (t1 < (BIT1_LENGTH + 1000))) {
-            if (i == (syncIndex1 + 24) % RING_BUFFER_SIZE) {
-              negative = true;
-            }
-            temp = (temp << 1) + 1;
-          } else if ((t1 > (BIT0_LENGTH - 1000)) && (t1 < (BIT0_LENGTH + 1000))) {
-            temp = (temp << 1) + 0;
-          } else {
-            printf("not one or zero: %d\n", t1);
-            fail = true;
-          }
-        } else {
-          printf("wrong separation length: %d\n", t0);
-          fail = true;
-        }
-      }
-
-      if (!fail) {
-        if (negative) {
-          temp = 4096 - temp;
-          printf("-");
-        }
-
-        printTime();
-        int celsiusReading = (temp + 5) / 10;
-
-        // First bit in capturedBinary represents the sensor identifier
-        std::string sensor = capturedBinary.substr(0, 8);
-        printf("%d C  %d F\n", celsiusReading, (temp * 9 / 5 + 325) / 10);
-        insertTemp(sensor, celsiusReading);
-      } else {
-        printf("Decoding Error.\n");
-      }
-
-      delay(1000);
-      wiringPiISR(DATA_PIN, INT_EDGE_BOTH, &handler);
-      received   = false;
-      syncIndex1 = 0;
-      syncIndex2 = 0;
-      printf("============================= \n \n \n");
-    }
-  }
-
-  exit(0);
-}
+</html>
